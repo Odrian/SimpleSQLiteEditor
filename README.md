@@ -1,2 +1,2 @@
-##SQLiteEditoe
+## SQLiteEditoe
 *описание проекта*
