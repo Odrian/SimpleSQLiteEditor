@@ -1,21 +1,26 @@
 import sys
 from PyQt5 import uic
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeView
 from PyQt5.QtWidgets import QTreeWidgetItem, QAbstractItemView, QFileDialog
 
 import sqlite3
 
+class SimpleException(Exception):
+    pass
 
 class MyWidget(QMainWindow):
     def __init__(self):
-        self.treeDBWidget = QTreeWidget()  # чтобы pycharm видел, что treeDBWidget имеет класс QTreeWidget
+        self.treeDBWidget: QTreeWidget  # чтобы pycharm видел, что treeDBWidget имеет класс QTreeWidget
 
         super().__init__()
         uic.loadUi('main.ui', self)
+
         self.menuSetup()
         self.setup_DB_tree()
         self.dbs = []  # dbs = [[name, path, widget, con, cur, tables], ...]
         self.selected = None
+
+#        self.addDb("C:/$.another/Git/films_db.sqlite")
 
     def menuSetup(self):
         self.qCreateDB.triggered.connect(self.newDb)
@@ -26,18 +31,22 @@ class MyWidget(QMainWindow):
         self.treeDBWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.treeDBWidget.setUniformRowHeights(True)
     def treeItemClick(self, it):
-        db = it.parent()
-        if db is None:  # clicked on db
-            dbInfo = self.getDbInfoByWidget(it)
-            pass
-        else:  # clicked on table
-            dbInfo = self.getDbInfoByWidget(db)
-            table = it
-            pass
+        try:
+            db = it.parent()
+            if db is None:
+                dbInfo = self.getDbInfoByWidget(it)
+                pass
+            else:
+                dbInfo = self.getDbInfoByWidget(db)
+                table = it
+                pass
+        except SimpleException:
+            pass  # ERROR WINDOW
     def getDbInfoByWidget(self, widget):
         for dbInfo1 in self.dbs:
             if dbInfo1[2] == widget:
                 return dbInfo1
+        raise SimpleException
 
     def newDb(self):
         fileName = QFileDialog.getSaveFileName(
