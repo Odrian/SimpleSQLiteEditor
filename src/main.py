@@ -5,9 +5,6 @@ from PyQt5.QtWidgets import QTreeWidgetItem, QAbstractItemView, QFileDialog
 
 import sqlite3
 
-# con = sqlite3.connect('')
-# cur = con.cursor()
-
 
 class MyWidget(QMainWindow):
     def __init__(self):
@@ -17,55 +14,62 @@ class MyWidget(QMainWindow):
         uic.loadUi('main.ui', self)
         self.menuSetup()
         self.setup_DB_tree()
-        self.dbs = []  # dbs = [[id, name, path, QWidget], ...]
+        self.dbs = []  # dbs = [[name, path, widget, con, cur, tables], ...]
         self.selected = None
+        self.addDb("C:/$.another/Git/films_db.sqlite")
 
     def menuSetup(self):
-        self.qCreateDB.triggered.connect(self.newDB)
-        self.qOpenDB.triggered.connect(self.openDB)
-
-    def newDB(self):
-        fileName = QFileDialog.getSaveFileName(
-            self, "Save Database", "/home", "SQLite (*.sqlite *.db3)")[0]
-        if fileName:
-            with open(fileName, 'w'):
-                pass
-            self.addDB(fileName)
-
-    def openDB(self):
-        fileNames = QFileDialog.getOpenFileNames(
-            self, "Open DataBase", "/home", "SQLite (*.sqlite *.db3)")[0]
-        print(fileNames)
-        for fileName in fileNames:
-            self.addDB(fileName)
-
-    def addDB(self, path):  # editing
-        pk = self.treeDBWidget.topLevelItemCount()
-        name = path.split('/')[-1]
-        widget = QTreeWidgetItem(['1: ' + name])
-        self.treeDBWidget.addTopLevelItem(widget)
-        k = [pk, name, path, widget]
-        self.dbs.append(k)
+        self.qCreateDB.triggered.connect(self.newDb)
+        self.qOpenDB.triggered.connect(self.openDb)
 
     def setup_DB_tree(self):
         self.treeDBWidget.itemClicked.connect(self.treeItemClick)
         self.treeDBWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.treeDBWidget.setUniformRowHeights(True)
-        top = QTreeWidgetItem(['data.sqlite3'])
-        self.treeDBWidget.addTopLevelItem(top)
-        top.addChild(QTreeWidgetItem(['table1']))
-
     def treeItemClick(self, it):
-        print(it, type(it))
-        help(it)
         db = it.parent()
-        if db is None:
-            db = it.text(0)
-            pass  # like db
-        else:
-            db = db.text(0)
-            table = it.text(0)
-            pass  # like table
+        if db is None:  # clicked on db
+            dbInfo = self.getDbInfoByWidget(it)
+            pass
+        else:  # clicked on table
+            dbInfo = self.getDbInfoByWidget(db)
+            table = it
+            pass
+    def getDbInfoByWidget(self, widget):
+        for dbInfo1 in self.dbs:
+            if dbInfo1[2] == widget:
+                return dbInfo1
+
+    def newDb(self):
+        fileName = QFileDialog.getSaveFileName(
+            self, "Save Database", "/home", "SQLite (*.sqlite *.db3)")[0]
+        if fileName:
+            with open(fileName, 'w'):
+                pass
+            self.addDb(fileName)
+    def openDb(self):
+        fileNames = QFileDialog.getOpenFileNames(
+            self, "Open DataBase", "/home", "SQLite (*.sqlite *.db3)")[0]
+        for fileName in fileNames:
+            self.addDb(fileName)
+
+    def addDb(self, path):
+        name = path.split('/')[-1]
+        widget = QTreeWidgetItem([name])
+        widget.setToolTip(0, path)
+        self.treeDBWidget.addTopLevelItem(widget)
+        con = sqlite3.connect(path)
+        cur = con.cursor()
+        tables = cur.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
+        tables = list(map(lambda x: x[0], tables))
+        for table in tables:
+            widget.addChild(QTreeWidgetItem([table]))
+
+        k = [name, path, widget, con, cur, tables]
+        self.dbs.append(k)
+
+    def selectDb(self):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
