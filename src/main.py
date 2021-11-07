@@ -16,7 +16,6 @@ class MyWidget(QMainWindow):
         self.setup_DB_tree()
         self.dbs = []  # dbs = [[name, path, widget, con, cur, tables], ...]
         self.selected = None
-        self.addDb("C:/$.another/Git/films_db.sqlite")
 
     def menuSetup(self):
         self.qCreateDB.triggered.connect(self.newDb)
