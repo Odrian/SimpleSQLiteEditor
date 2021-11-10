@@ -1,17 +1,64 @@
 import sys
 from PyQt5 import uic
-from PyQt5.QtGui import QStandardItemModel
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import \
     (QApplication, QMainWindow, QAbstractItemView, QTableView, QFileDialog,
      QTreeWidgetItem, QHeaderView, QTreeWidget)
 import sqlite3
 
+
 class SimpleException(Exception):
     pass
 
+
+class Column:
+    def __init__(self, name):
+        self.name = name
+        self.type = ""
+        self.primary_key = False
+        self.unique = False
+        self.notNull = False
+        self.default = ""
+        self.references = None
+
+    def str(self):
+        data = f"Column({self.name}, {self.type}"
+        if self.references is not None:
+            data += f", References='{self.references}'"
+        if self.primary_key:
+            data += ", Primary_key"
+        if self.unique:
+            data += ", Unique"
+        if self.notNull:
+            data += ", Not_Null"
+        if self.default is not None:
+            data += f", Default='{self.default}'"
+        return data + ")"
+
+    def __repr__(self):
+        return self.str()
+
+    def __str__(self):
+        return self.str()
+
+    def get_list(self):
+        return [
+            self.name,
+            self.type,
+            self._bool_converter(self.references is not None),
+            self._bool_converter(self.primary_key),
+            self._bool_converter(self.unique),
+            self._bool_converter(self.notNull),
+            self.default
+        ]
+
+    def _bool_converter(self, boolean):
+        return "+" if boolean else ""
+
+
 class MyWidget(QMainWindow):
     def __init__(self):
-        # чтобы pycharm видел классы
+        # чтобы PyCharm видел классы
         self.table1 = QTableView()
         self.table2 = QTableView()
         self.treeDBWidget = QTreeWidget()
@@ -23,79 +70,129 @@ class MyWidget(QMainWindow):
         self.selected = None
         self.model1 = QStandardItemModel()
         self.model2 = QStandardItemModel()
+        self.supported_types = [
+            "BIGINT", "BLOB", "BOOLEAN", "CHAR", "DATE", "DATETIME", "DECIMAL", "DOUBLE",
+            "INTEGER", "INT", "NONE", "NUMERIC", "REAL", "STRING", "TEXT", "TIME", "VARCHAR",
+        ]
 
-        self.menuSetup()
-        self.setup_DB_tree()
-        self.setupTables()
+        self.menu_setup()
+        self.setup_db_tree()
+        self.setup_tables()
+        self.open_recent_db()
 
-#        self.addDb("C:/$.another/Git/films_db.sqlite")
+    def open_recent_db(self):
+        pass
+        # self.add_db("C:/$.another/Git/films_db.sqlite")
 
-    def menuSetup(self):
-        self.qCreateDB.triggered.connect(self.newDb)
-        self.qOpenDB.triggered.connect(self.openDb)
+    def menu_setup(self):
+        self.qCreateDB.triggered.connect(self.new_db)
+        self.qOpenDB.triggered.connect(self.open_db)
 
-    def setupTables(self):
+    def setup_tables(self):
         self.table1.setModel(self.model1)
         self.table2.setModel(self.model2)
-        cols = ["Имя", "Тип Данных", "Первичный ключ", "Non null", "По умолчанию"]
+
+        cols = ["Имя", "Тип Данных", "Внешний ключ", "Первичный ключ",
+                "Уникальность", "не Null", "По умолчанию"]
         self.model1.setHorizontalHeaderLabels(cols)
         header = self.table1.horizontalHeader()
-        n = 5
+        n = len(cols)
         for i in range(0, n - 1):
             header.setSectionResizeMode(i, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(n - 1, QHeaderView.Stretch)
-    def clearTables(self):
+
+    def clear_tables(self):
         self.model1.setRowCount(0)
         self.model2.setRowCount(0)
         self.model2.setColumnCount(0)
 
-    def setup_DB_tree(self):
-        self.treeDBWidget.itemClicked.connect(self.treeItemClick)
+    def setup_db_tree(self):
+        self.treeDBWidget.itemClicked.connect(self.tree_item_click)
         self.treeDBWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.treeDBWidget.setUniformRowHeights(True)
-    def treeItemClick(self, it):
+
+    def tree_item_click(self, it):
         try:
             db = it.parent()
-            self.clearTables()
+            self.clear_tables()
             if db is None:
-                dbInfo = self.getDbInfoByWidget(it)
-                self.selected = dbInfo
+                db_info = self.get_db_info_by_widget(it)
+                self.selected = db_info
             else:
-                dbInfo = self.getDbInfoByWidget(db)
-                self.selected = dbInfo
-
+                db_info = self.get_db_info_by_widget(db)
+                self.selected = db_info
                 table = it.text(0)
-                tex = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
-                request = dbInfo[4].execute(tex).fetchall()[0][0]
-                request = request.removeprefix(f"CREATE TABLE {table} (").removesuffix(")")
-                colums = []
-                for req in request.split(', '):
-                    req = req.split()
-                    # create structure
-                #print(req)
-                #print(colums)
-                # update table1 and table2
+                columns = self.get_all_columns(db_info, table)
+
+                for column in columns:
+                    self.model1.appendRow(map(QStandardItem, column.get_list()))
+
+                self.model2.setHorizontalHeaderLabels(map(lambda x: x.name, columns))
+
+                # update table2
         except SimpleException:
             pass  # error message
-    def getDbInfoByWidget(self, widget):
-        for dbInfo1 in self.dbs:
-            if dbInfo1[2] == widget:
-                return dbInfo1
+
+    def get_db_info_by_widget(self, widget):
+        for db_info1 in self.dbs:
+            if db_info1[2] == widget:
+                return db_info1
         raise SimpleException
 
-    def newDb(self):
-        fileName = QFileDialog.getSaveFileName(
+    def get_all_columns(self, db_info, table):
+        tex = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
+        request = db_info[4].execute(tex).fetchall()[0][0]
+        request = request.removeprefix(f"CREATE TABLE {table} (").removesuffix(")")
+        columns = []
+        for req in request.split(', '):
+            columns.append(self.create_column(req))
+        return columns
+
+    def create_column(self, req):
+        req = req.split()
+        name = req[0]
+        column = Column(name)
+        i = 1
+        if req[i] in self.supported_types:
+            column.type = req[i]
+            i = 2
+        n = len(req)
+        while i < n:
+            if req[i] == "UNIQUE":
+                column.unique = True
+            elif i != n - 1:
+                if req[i] == "PRIMARY" and req[i + 1] == "KEY":
+                    column.primary_key = True
+                    i += 1
+                elif req[i] == "NOT" and req[i + 1] == "NULL":
+                    column.notNull = True
+                    i += 1
+                elif req[i] == "DEFAULT":
+                    column.default = req[i+1]
+                    i += 1
+                elif i != n - 2 and req[i] == "REFERENCES":
+                    link_table = req[i + 1]
+                    link_col = req[i + 2][1:-1]
+                    column.references = (link_table, link_col)
+                    i += 2
+            i += 1
+        return column
+
+    def new_db(self):
+        file_name = QFileDialog.getSaveFileName(
             self, "Save Database", "/home", "SQLite (*.sqlite *.db3)")[0]
-        if fileName:
-            with open(fileName, 'w'):
+        if file_name:
+            with open(file_name, 'w'):
                 pass
-            self.addDb(fileName)
-    def openDb(self):
-        fileNames = QFileDialog.getOpenFileNames(
+            self.add_db(file_name)
+
+    def open_db(self):
+        file_names = QFileDialog.getOpenFileNames(
             self, "Open DataBase", "/home", "SQLite (*.sqlite *.db3)")[0]
-        for fileName in fileNames:
-            self.addDb(fileName)
-    def addDb(self, path):
+        for fileName in file_names:
+            self.add_db(fileName)
+
+    def add_db(self, path):
         name = path.split('/')[-1]
         widget = QTreeWidgetItem([name])
         widget.setToolTip(0, path)
@@ -110,8 +207,14 @@ class MyWidget(QMainWindow):
         k = [name, path, widget, con, cur, tables]
         self.dbs.append(k)
 
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MyWidget()
     ex.show()
+    sys.excepthook = except_hook
     sys.exit(app.exec_())
