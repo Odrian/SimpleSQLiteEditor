@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>970</width>
-    <height>596</height>
+    <width>1024</width>
+    <height>600</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>600</width>
+    <height>400</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>SQLiteEditor</string>
@@ -17,122 +23,204 @@
    <string/>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QTreeWidget" name="treeDBWidget">
-    <property name="geometry">
-     <rect>
-      <x>0</x>
-      <y>0</y>
-      <width>240</width>
-      <height>570</height>
-     </rect>
-    </property>
-    <column>
-     <property name="text">
-      <string>Базы данных</string>
-     </property>
-    </column>
-   </widget>
-   <widget class="QTabWidget" name="tabWidget">
-    <property name="geometry">
-     <rect>
-      <x>240</x>
-      <y>0</y>
-      <width>731</width>
-      <height>571</height>
-     </rect>
-    </property>
-    <property name="tabPosition">
-     <enum>QTabWidget::North</enum>
-    </property>
-    <property name="tabShape">
-     <enum>QTabWidget::Rounded</enum>
-    </property>
-    <property name="currentIndex">
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <property name="spacing">
      <number>0</number>
     </property>
-    <widget class="QWidget" name="tab1">
-     <attribute name="title">
-      <string>Столбцы</string>
-     </attribute>
-     <widget class="QTableView" name="table1">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>41</y>
-        <width>725</width>
-        <height>501</height>
-       </rect>
+    <property name="leftMargin">
+     <number>0</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>0</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="QTreeWidget" name="treeDBWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
-      <property name="gridStyle">
-       <enum>Qt::SolidLine</enum>
+      <property name="maximumSize">
+       <size>
+        <width>300</width>
+        <height>16777215</height>
+       </size>
       </property>
+      <column>
+       <property name="text">
+        <string>Базы данных</string>
+       </property>
+      </column>
      </widget>
-     <widget class="QToolButton" name="colDel">
-      <property name="geometry">
-       <rect>
-        <x>76</x>
-        <y>4</y>
-        <width>31</width>
-        <height>31</height>
-       </rect>
+    </item>
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
-      <property name="text">
-       <string>-</string>
+      <property name="tabPosition">
+       <enum>QTabWidget::North</enum>
       </property>
+      <property name="tabShape">
+       <enum>QTabWidget::Rounded</enum>
+      </property>
+      <property name="currentIndex">
+       <number>1</number>
+      </property>
+      <widget class="QWidget" name="tab1">
+       <attribute name="title">
+        <string>Столбцы</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QGroupBox" name="groupBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="title">
+           <string/>
+          </property>
+          <widget class="QToolButton" name="colAdd">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="toolTip">
+            <string>fds</string>
+           </property>
+           <property name="text">
+            <string>+</string>
+           </property>
+          </widget>
+          <widget class="QToolButton" name="colEdit">
+           <property name="geometry">
+            <rect>
+             <x>50</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>?</string>
+           </property>
+          </widget>
+          <widget class="QToolButton" name="colDel">
+           <property name="geometry">
+            <rect>
+             <x>90</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>-</string>
+           </property>
+          </widget>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTableView" name="table1">
+          <property name="gridStyle">
+           <enum>Qt::SolidLine</enum>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab2">
+       <attribute name="title">
+        <string>Данные</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="title">
+           <string/>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTableView" name="table2"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
-     <widget class="QToolButton" name="colEdit">
-      <property name="geometry">
-       <rect>
-        <x>40</x>
-        <y>4</y>
-        <width>31</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>?</string>
-      </property>
-     </widget>
-     <widget class="QToolButton" name="colAdd">
-      <property name="geometry">
-       <rect>
-        <x>5</x>
-        <y>4</y>
-        <width>31</width>
-        <height>31</height>
-       </rect>
-      </property>
-      <property name="toolTip">
-       <string>fds</string>
-      </property>
-      <property name="text">
-       <string>+</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QWidget" name="tab2">
-     <attribute name="title">
-      <string>Данные</string>
-     </attribute>
-     <widget class="QTableView" name="table2">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>41</y>
-        <width>725</width>
-        <height>501</height>
-       </rect>
-      </property>
-     </widget>
-    </widget>
-   </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>970</width>
+     <width>1024</width>
      <height>26</height>
     </rect>
    </property>
