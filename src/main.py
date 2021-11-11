@@ -1,14 +1,11 @@
+from os import rename
 import sys
 from PyQt5 import uic
-from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QFont
 from PyQt5.QtWidgets import \
     (QApplication, QMainWindow, QAbstractItemView, QTableView, QFileDialog,
-     QTreeWidgetItem, QHeaderView, QTreeWidget)
+     QTreeWidgetItem, QHeaderView, QTreeWidget, QInputDialog, QMessageBox)
 import sqlite3
-
-
-class SimpleException(Exception):
-    pass
 
 
 class Column:
@@ -67,81 +64,149 @@ class MyWidget(QMainWindow):
         uic.loadUi('main.ui', self)
 
         self.dbs = []  # dbs = [[name, path, widget, con, cur, tables], ...]
-        self.selected = None
+        self.selected_db = None
+        self.selected_table = None
         self.model1 = QStandardItemModel()
         self.model2 = QStandardItemModel()
+
         self.supported_types = [
             "BIGINT", "BLOB", "BOOLEAN", "CHAR", "DATE", "DATETIME",
             "DECIMAL", "DOUBLE", "INTEGER", "INT", "NONE", "NUMERIC",
             "REAL", "STRING", "TEXT", "TIME", "VARCHAR",
         ]
 
-        self.menu_setup()
-        self.setup_db_tree()
-        self.setup_tables()
-        self.open_recent_db()
+        self.setup()
 
-    def open_recent_db(self):
-        pass
-        # self.add_db("C:/$.another/Git/films_db.sqlite")
+    def setup(self):
+        # self.table2.doubleClicked.connect(lambda x: print(x))
+        self.menu_create_db.triggered.connect(self.new_db)
+        self.menu_open_db.triggered.connect(self.open_db)
 
-    def menu_setup(self):
-        self.qCreateDB.triggered.connect(self.new_db)
-        self.qOpenDB.triggered.connect(self.open_db)
+        self.tab1_save.clicked.connect(self._tab1_save)
+        self.tab1_not_save.clicked.connect(self._tab_not_save)
+        self.tab1_add.clicked.connect(self._tab1_add)
+        self.tab1_edit.clicked.connect(self._tab1_edit)
+        self.tab1_del.clicked.connect(self._tab1_del)
 
-    def setup_tables(self):
-        self.table1.setModel(self.model1)
-        self.table2.setModel(self.model2)
+        self.tab2_save.clicked.connect(self._tab2_save)
+        self.tab2_not_save.clicked.connect(self._tab_not_save)
+        self.tab2_add.clicked.connect(self._tab2_add)
+        self.tab2_edit.clicked.connect(self._tab2_edit)
+        self.tab2_del.clicked.connect(self._tab2_del)
 
-        cols = ["Имя", "Тип Данных", "Внешний ключ", "Первичный ключ",
-                "Уникальность", "не Null", "По умолчанию"]
-        self.model1.setHorizontalHeaderLabels(cols)
-
-        self.table1.horizontalHeader().\
-            setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.table2.horizontalHeader().\
-            setSectionResizeMode(QHeaderView.ResizeToContents)
-
-    def clear_tables(self):
-        self.model1.setRowCount(0)
-        self.model2.setRowCount(0)
-        self.model2.setColumnCount(0)
-
-    def setup_db_tree(self):
-        self.treeDBWidget.itemClicked.connect(self.tree_item_click)
+        self.treeDBWidget.itemClicked.connect(self.tree_item_select)
+        self.treeDBWidget.itemDoubleClicked.connect(self.tree_item_rename)
         self.treeDBWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.treeDBWidget.setUniformRowHeights(True)
 
-    def tree_item_click(self, it):
-        try:
-            db = it.parent()
+        self.table1.setModel(self.model1)
+        self.table2.setModel(self.model2)
+        cols = ["Имя", "Тип Данных", "Внешний ключ", "Первичный ключ",
+                "Уникальность", "не Null", "По умолчанию"]
+        self.model1.setHorizontalHeaderLabels(cols)
+        self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.table2.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        if DEBUG:
+            self.add_db("C:/$.another/Git/films_db.sqlite")
+        pass  # TODO
+
+    def clear_tables(self):
+        self.model1.setRowCount(0)
+        self.model2.setColumnCount(0)
+        self.model2.setRowCount(0)
+
+    def tree_item_rename(self, it):
+        db = it.parent()
+        self.clear_tables()
+        if db is None:
+            db_info = self.get_db_info_by_widget(it)
+            path = db_info[1]
+            print(path)
+            pass  # TODO
+        else:
+            db_info = self.get_db_info_by_widget(db)
+            table0 = it.text(0)
+            table1, flag = QInputDialog() \
+                .getText(self, "Переменовать таблицу",
+                         "Все не сохранённые данные будут утеряны.\nНовое имя:")
+            table1 = self.check_text_correct(table1)
+            if flag and table1 != "" and table1 != table0:
+                if table1 not in db_info[5]:
+                    self.sql_rename_table(db_info, table0, table1)
+                else:
+                    self.error("уже существует другая таблица с таким именем: " + table1)
+
+    def tree_item_select(self, it):
+        db = it.parent()
+        if db is None:
+            db_info = self.get_db_info_by_widget(it)
+            self.selected_db = db_info
             self.clear_tables()
-            if db is None:
-                db_info = self.get_db_info_by_widget(it)
-                self.selected = db_info
-            else:
-                db_info = self.get_db_info_by_widget(db)
-                self.selected = db_info
+        else:
+            db_info = self.get_db_info_by_widget(db)
+            table = it.text(0)
+            self.select_table(db_info, table)
 
-                cur = db_info[4]
-                table = it.text(0)
-                columns = self.get_all_columns(cur, table)
+    def select_table(self, db_info, table):
+        self.clear_tables()
+        self.selected_db = db_info
+        self.selected_table = table
 
-                for column in columns:
-                    self.model1.appendRow(map(QStandardItem, column.get_list()))
-                self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        cur = db_info[4]
+        columns = self.sql_get_all_columns(cur, table)
 
-                self.model2.setHorizontalHeaderLabels(map(lambda x: x.name, columns))
-                for row in self.get_all_data(cur, table):
-                    self.model2.appendRow(map(lambda x: QStandardItem(str(x)), row))
-        except SimpleException:
-            pass  # error message
+        def make_uneditable_item(text):
+            item = QStandardItem(text)
+            item.setEditable(False)
+            return item
+        for column in columns:
+            self.model1.appendRow(map(make_uneditable_item, column.get_list()))
+        self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        self.model2.setHorizontalHeaderLabels(map(lambda x: x.name, columns))
+        for row in self.sql_get_all_data(cur, table):
+            self.model2.appendRow(map(lambda x: QStandardItem(str(x)), row))
 
     def get_db_info_by_widget(self, widget):
         for db_info1 in self.dbs:
             if db_info1[2] == widget:
                 return db_info1
-        raise SimpleException
+        self.error("err", True)
+
+    def check_text_correct(self, text):
+        chars = "\'\" "
+        for ch in text:
+            if ch in chars:
+                return ""
+        return text
+
+    def _tab_not_save(self):
+        self.select_table(self.selected_db, self.selected_table)
+
+    def _tab1_save(self):
+        pass  # TODO
+
+    def _tab1_add(self):
+        pass  # TODO
+
+    def _tab1_edit(self):
+        pass  # TODO
+
+    def _tab1_del(self):
+        pass  # TODO
+
+    def _tab2_save(self):
+        pass  # TODO
+
+    def _tab2_add(self):
+        self.model2.appendRow(QStandardItem(""))
+
+    def _tab2_edit(self):
+        pass  # TODO
+
+    def _tab2_del(self):
+        pass  # TODO
 
     def new_db(self):
         file_name = QFileDialog.getSaveFileName(
@@ -164,21 +229,53 @@ class MyWidget(QMainWindow):
         self.treeDBWidget.addTopLevelItem(widget)
         con = sqlite3.connect(path)
         cur = con.cursor()
-        tables = self.get_all_tables(cur)
+        tables = self.sql_get_all_tables(cur)
         for table in tables:
             widget.addChild(QTreeWidgetItem([table]))
 
         k = [name, path, widget, con, cur, tables]
         self.dbs.append(k)
 
-    def get_all_tables(self, cur):
+    def error(self, text="Some error", error=False):
+        msg = QMessageBox()
+        msg.setWindowTitle("Error")
+        msg.setFont(QFont("Arial"))
+        if error:
+            msg.setIcon(QMessageBox.Critical)
+        else:
+            msg.setIcon(QMessageBox.Warning)
+        msg.setText(text)
+        msg.exec_()
+        if error:
+            sys.exit()
+
+    def sql_rename_table(self, db_info, table0, table1):
+        con = db_info[3]
+        cur = db_info[4]
+
+        con.rollback()
+        cur.execute(f"ALTER TABLE {table0} RENAME TO {table1}")
+
+        widget = db_info[2]
+        for child in widget.takeChildren():
+            if child.text(0) == table0:
+                child.setText(0, table1)
+            widget.addChild(child)
+
+    def sql_get_all_tables(self, cur):
         tables = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         return list(map(lambda x: x[0], tables))
 
-    def get_all_columns(self, cur, table):
+    def sql_get_all_columns(self, cur, table):
         tex = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
         request = cur.execute(tex).fetchall()[0][0]
-        request = request.removeprefix(f"CREATE TABLE {table} (").removesuffix(")")
+        request = request \
+            .removeprefix(f"CREATE TABLE ")\
+            .removeprefix("\"")\
+            .removeprefix(table)\
+            .removeprefix("\"")\
+            .removeprefix(" (")\
+            .removesuffix(")")
         columns = []
         for req in request.split(', '):
             req = req.split()
@@ -211,13 +308,15 @@ class MyWidget(QMainWindow):
             columns.append(column)
         return columns
 
-    def get_all_data(self, cur, table):
+    def sql_get_all_data(self, cur, table):
         return cur.execute("SELECT * FROM " + table).fetchall()
 
 
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
 
+
+DEBUG = True
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

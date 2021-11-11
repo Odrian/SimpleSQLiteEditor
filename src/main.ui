@@ -53,6 +53,18 @@
         <height>16777215</height>
        </size>
       </property>
+      <property name="animated">
+       <bool>true</bool>
+      </property>
+      <property name="allColumnsShowFocus">
+       <bool>true</bool>
+      </property>
+      <property name="wordWrap">
+       <bool>true</bool>
+      </property>
+      <property name="expandsOnDoubleClick">
+       <bool>false</bool>
+      </property>
       <column>
        <property name="text">
         <string>Базы данных</string>
@@ -114,23 +126,7 @@
           <property name="title">
            <string/>
           </property>
-          <widget class="QToolButton" name="colAdd">
-           <property name="geometry">
-            <rect>
-             <x>10</x>
-             <y>10</y>
-             <width>31</width>
-             <height>31</height>
-            </rect>
-           </property>
-           <property name="toolTip">
-            <string>fds</string>
-           </property>
-           <property name="text">
-            <string>+</string>
-           </property>
-          </widget>
-          <widget class="QToolButton" name="colEdit">
+          <widget class="QPushButton" name="tab1_not_save">
            <property name="geometry">
             <rect>
              <x>50</x>
@@ -140,13 +136,60 @@
             </rect>
            </property>
            <property name="text">
-            <string>?</string>
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>img/unsave.png</normaloff>img/unsave.png</iconset>
            </property>
           </widget>
-          <widget class="QToolButton" name="colDel">
+          <widget class="QPushButton" name="tab1_save">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>img/save.png</normaloff>img/save.png</iconset>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab1_add">
            <property name="geometry">
             <rect>
              <x>90</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>+</string>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab1_edit">
+           <property name="geometry">
+            <rect>
+             <x>170</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>?</string>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab1_del">
+           <property name="geometry">
+            <rect>
+             <x>130</x>
              <y>10</y>
              <width>31</width>
              <height>31</height>
@@ -160,8 +203,8 @@
         </item>
         <item>
          <widget class="QTableView" name="table1">
-          <property name="gridStyle">
-           <enum>Qt::SolidLine</enum>
+          <property name="editTriggers">
+           <set>QAbstractItemView::AnyKeyPressed|QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
           </property>
          </widget>
         </item>
@@ -188,7 +231,7 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
+         <widget class="QGroupBox" name="groupBox_3">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
             <horstretch>0</horstretch>
@@ -204,6 +247,79 @@
           <property name="title">
            <string/>
           </property>
+          <widget class="QPushButton" name="tab2_not_save">
+           <property name="geometry">
+            <rect>
+             <x>50</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>img/unsave.png</normaloff>img/unsave.png</iconset>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab2_save">
+           <property name="geometry">
+            <rect>
+             <x>10</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset>
+             <normaloff>img/save.png</normaloff>img/save.png</iconset>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab2_add">
+           <property name="geometry">
+            <rect>
+             <x>90</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>+</string>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab2_edit">
+           <property name="geometry">
+            <rect>
+             <x>170</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>?</string>
+           </property>
+          </widget>
+          <widget class="QPushButton" name="tab2_del">
+           <property name="geometry">
+            <rect>
+             <x>130</x>
+             <y>10</y>
+             <width>31</width>
+             <height>31</height>
+            </rect>
+           </property>
+           <property name="text">
+            <string>-</string>
+           </property>
+          </widget>
          </widget>
         </item>
         <item>
@@ -231,17 +347,17 @@
     <property name="title">
      <string>Файл</string>
     </property>
-    <addaction name="qCreateDB"/>
-    <addaction name="qOpenDB"/>
+    <addaction name="menu_create_db"/>
+    <addaction name="menu_open_db"/>
    </widget>
    <addaction name="menufile"/>
   </widget>
-  <action name="qCreateDB">
+  <action name="menu_create_db">
    <property name="text">
     <string>Создать базу данных</string>
    </property>
   </action>
-  <action name="qOpenDB">
+  <action name="menu_open_db">
    <property name="text">
     <string>Открыть базу данных</string>
    </property>
