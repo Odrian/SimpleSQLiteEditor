@@ -124,6 +124,8 @@ class ColumnDialog(QDialog):
             link1, link2 = link
             self.link1.setCurrentIndex(self.link1.findText(link1))
             self.link2.setCurrentIndex(self.link2.findText(link2))
+        else:
+            self.link0_trigger()
         if column.default is not None:
             self.default0.setText(column.default)
 
@@ -391,16 +393,22 @@ class MyWidget(QMainWindow):
             row = []
             for x in range(model2.columnCount()):
                 val = model2.data(model2.index(y, x))
-                row.append(f"'{val}'")
+                if val is None or val == "":
+                    row.append("NULL")
+                elif val in ["FALSE", "TRUE"]:
+                    row.append(val)
+                else:
+                    row.append(f"'{val}'")
             columns = self.sql_get_all_columns()
             columns = map(lambda col: col.name, columns)
             try:
                 cur.execute(f"INSERT INTO {table} ({','.join(columns)}) VALUES ({', '.join(row)})")
-            except sqlite3.IntegrityError as e:
+            except sqlite3.Error as e:
                 self.error(str(e))
                 self._tab2_not_save()
                 return
         self.selected_db[3].commit()
+        self.update_table()
 
     def _tab2_not_save(self):
         if self.selected_table is None:
@@ -471,7 +479,7 @@ class MyWidget(QMainWindow):
             return
         try:
             con = sqlite3.connect(path)
-        except sqlite3.OperationalError as e:
+        except sqlite3.Error as e:
             self.error(path + "\n" + str(e))
             return
         name = path.split('/')[-1]
