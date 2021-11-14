@@ -345,15 +345,19 @@ class MyWidget(QMainWindow):
             columns0 = ", ".join(map(lambda x: x.split()[0], request))
             request[row] = column1.get_request()
             columns1 = ", ".join(map(lambda x: x.split()[0], request))
+
+            text = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
+            previous_request = cur.execute(text).fetchone()[0]
+
             cur.execute("PRAGMA foreign_keys = 0")
             cur.execute(f"CREATE TABLE table11__old AS SELECT * FROM {table}")
             cur.execute(f"DROP TABLE {table}")
             try:
                 cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
                 cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
-            except sqlite3.OperationalError as e:
+            except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
                 cur.execute(f"DROP TABLE IF EXISTS {table}")
-                cur.execute(f"ALTER TABLE table11__old RENAME TO {table}")
+                cur.execute(previous_request)
                 self.error(str(e))
             finally:
                 self.selected_db[3].commit()
