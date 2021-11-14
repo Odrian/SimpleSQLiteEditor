@@ -71,7 +71,7 @@ class Column:
         if self.references is not None:
             req.append("REFERENCES")
             req.append(self.references[0])
-            req.append(self.references[1])
+            req.append(f"({self.references[1]})")
         return " ".join(req)
 
 
@@ -83,8 +83,8 @@ class ColumnDialog(QDialog):
         self.unique = QCheckBox()
         self.not_null = QCheckBox()
         self.link0 = QCheckBox()
-#        self.link1 = QComboBox()
-#        self.link2 = QComboBox()
+        self.link1 = QComboBox()
+        self.link2 = QComboBox()
         self.default0 = QLineEdit()
 
         super().__init__()
@@ -104,8 +104,11 @@ class ColumnDialog(QDialog):
             self.link1.setDisabled(True)
             self.link2.setDisabled(True)
 
-    def link1_trigger(self, value):
-        pass
+    def link1_trigger(self):
+        table = self.link1.currentText()
+        values = list(map(lambda x: x.name, self.main.sql_get_all_columns(table=table)))
+        self.link2.clear()
+        self.link2.addItems(values)
 
     def get_values(self, column):
         self.name.setText(column.name)
@@ -114,29 +117,29 @@ class ColumnDialog(QDialog):
         self.primary_key.setChecked(column.primary_key)
         self.unique.setChecked(column.unique)
         self.not_null.setChecked(column.not_null)
-        self.link1.addItem("")
         self.link1.addItems(self.main.sql_get_all_tables())
         link = column.references
         if link:
-            # print(1, link)
+            self.link0.setChecked(True)
             link1, link2 = link
             self.link1.setCurrentIndex(self.link1.findText(link1))
             self.link2.setCurrentIndex(self.link2.findText(link2))
         if column.default is not None:
             self.default0.setText(column.default)
 
-        self.link0_trigger()
-
         if self.exec_() == 0:
             return None
 
         column2 = Column(self.name.text())
-        column2.type = str(self.type.currentText())
+        if self.type.currentIndex() != 0:
+            column2.type = str(self.type.currentText())
         column2.primary_key = self.primary_key.isChecked()
         column2.unique = self.unique.isChecked()
         column2.not_null = self.not_null.isChecked()
         if self.default0 != "":
             column2.default = self.default0.text()
+        if self.link0.isChecked():
+            column2.references = (str(self.link1.currentText()), str(self.link2.currentText()))
 
         return column2
 
@@ -349,9 +352,9 @@ class MyWidget(QMainWindow):
                 cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
                 cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
             except sqlite3.OperationalError as e:
-                self.error(str(e))
-                cur.execute(f"DROP TABLE {table}")
+                cur.execute(f"DROP TABLE IF EXISTS {table}")
                 cur.execute(f"ALTER TABLE table11__old RENAME TO {table}")
+                self.error(str(e))
             finally:
                 self.selected_db[3].commit()
                 self.update_table()
@@ -374,12 +377,11 @@ class MyWidget(QMainWindow):
         model2 = self.model2
         table = self.selected_table
         cur = self.selected_db[4]
-        columns = self.sql_get_all_columns()
 
         cur.execute(f"DELETE FROM {table}")
         for y in range(model2.rowCount()):
             row = []
-            for x in range(len(columns)):
+            for x in range(model2.columnCount()):
                 val = model2.data(model2.index(y, x))
                 row.append(val)
             cur.execute(f"INSERT INTO {table} VALUES ({', '.join(row)})")
@@ -593,7 +595,9 @@ class MyWidget(QMainWindow):
             return []
         request = request[0][0].removeprefix(f"CREATE TABLE ").removeprefix("\"").removeprefix(table)\
             .removeprefix("\"").removeprefix(" ").removeprefix("(").removesuffix(")")
-        return request.split(", ")
+        request = request.split(",")
+        request = list(map(lambda x: " ".join(x.split()), request))
+        return request
 
     def sql_get_all_data(self, cur=None, table=None):
         if cur is None:
