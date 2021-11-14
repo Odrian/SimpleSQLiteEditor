@@ -354,16 +354,20 @@ class MyWidget(QMainWindow):
             cur.execute(f"DROP TABLE {table}")
             try:
                 cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
-                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
-            except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
-                cur.execute(f"DROP TABLE IF EXISTS {table}")
+            except sqlite3.Error as e:
                 cur.execute(previous_request)
                 self.error(str(e))
-            finally:
-                self.selected_db[3].commit()
-                self.update_table()
-                cur.execute("DROP TABLE IF EXISTS table11__old")
-                cur.execute("PRAGMA foreign_keys = 1")
+            try:
+                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
+            except sqlite3.Error as e:
+                cur.execute(f"DROP TABLE {table}")
+                cur.execute(previous_request)
+                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
+                self.error(str(e))
+            self.selected_db[3].commit()
+            self.update_table()
+            cur.execute("DROP TABLE IF EXISTS table11__old")
+            cur.execute("PRAGMA foreign_keys = 1")
 
     def _tab1_del(self):
         if self.selected_table is None:
