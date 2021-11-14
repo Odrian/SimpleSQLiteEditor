@@ -342,18 +342,21 @@ class MyWidget(QMainWindow):
             columns0 = ", ".join(map(lambda x: x.split()[0], request))
             request[row] = column1.get_request()
             columns1 = ", ".join(map(lambda x: x.split()[0], request))
-            cur.execute("PRAGMA foreign_keys=off")
-            cur.execute(f"ALTER TABLE {table} RENAME TO _table11__old")
+            cur.execute("PRAGMA foreign_keys = 0")
+            cur.execute(f"CREATE TABLE table11__old AS SELECT * FROM {table}")
+            cur.execute(f"DROP TABLE {table}")
             try:
                 cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
-                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM _table11__old")
+                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM table11__old")
             except sqlite3.OperationalError as e:
                 self.error(str(e))
-                cur.execute(f"ALTER TABLE _table11__old RENAME TO {table}")
+                cur.execute(f"DROP TABLE {table}")
+                cur.execute(f"ALTER TABLE table11__old RENAME TO {table}")
             finally:
-                cur.execute("PRAGMA foreign_keys=on")
+                self.selected_db[3].commit()
                 self.update_table()
-                cur.execute("DROP TABLE IF EXISTS _table11__old")
+                cur.execute("DROP TABLE IF EXISTS table11__old")
+                cur.execute("PRAGMA foreign_keys = 1")
 
     def _tab1_del(self):
         if self.selected_table is None:
@@ -589,7 +592,7 @@ class MyWidget(QMainWindow):
             self.error(f"error: не удалось найти таблицу - {table}")
             return []
         request = request[0][0].removeprefix(f"CREATE TABLE ").removeprefix("\"").removeprefix(table)\
-            .removeprefix("\"").removeprefix(" (").removesuffix(")")
+            .removeprefix("\"").removeprefix(" ").removeprefix("(").removesuffix(")")
         return request.split(", ")
 
     def sql_get_all_data(self, cur=None, table=None):
