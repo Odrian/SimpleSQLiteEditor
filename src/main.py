@@ -118,7 +118,7 @@ class ColumnDialog(QDialog):
         self.link1.addItems(self.main.sql_get_all_tables())
         link = column.references
         if link:
-            print(1, link)
+            # print(1, link)
             link1, link2 = link
             self.link1.setCurrentIndex(self.link1.findText(link1))
             self.link2.setCurrentIndex(self.link2.findText(link2))
@@ -196,7 +196,10 @@ class MyWidget(QMainWindow):
 
     def open_recent(self):
         with open("recent.txt") as f:
-            for path in f.read().split("\n"):
+            data = f.read()
+            if data == "":
+                return
+            for path in data.split("\n"):
                 self.add_db(path, False)
 
     def delete_recent(self, path):
@@ -288,20 +291,28 @@ class MyWidget(QMainWindow):
         return text
 
     def _tab_update(self):
+        if self.selected_table is None:
+            return
         self.update_table()
 
     def _tab1_add(self):
+        if self.selected_db is None:
+            return
         table = None  # Чтобы убрать Warning
         if self.selected_table is None:
             table, flag = self.input_dialog("Ввод", "Введите имя новой таблицы:")
-            if not flag or self.check_text_correct(table) == "":
+            if not flag:
+                return
+            if self.check_text_correct(table) == "":
                 self.error("Ошибка ввода")
                 return
             if table in self.selected_db[5]:
                 self.error(f"Таблица {table} уже существует")
                 return
         name, flag = self.input_dialog("Ввод", "Введите имя нового слобца:")
-        if not flag or self.check_text_correct(name) == "":
+        if not flag:
+            return
+        if self.check_text_correct(name) == "":
             self.error("Ошибка ввода")
             return
         cur = self.selected_db[4]
@@ -316,6 +327,8 @@ class MyWidget(QMainWindow):
         self.update_table()
 
     def _tab1_edit(self):
+        if self.selected_table is None:
+            return
         index = self.table1.selectedIndexes()
         if index:
             row = index[0].row()
@@ -323,17 +336,17 @@ class MyWidget(QMainWindow):
             column1 = ColumnDialog(self).get_values(column0)
             if column1 is None:
                 return
+            cur = self.selected_db[4]
             table = self.selected_table
             request = self.sql_get_table_request()
             columns0 = ", ".join(map(lambda x: x.split()[0], request))
             request[row] = column1.get_request()
             columns1 = ", ".join(map(lambda x: x.split()[0], request))
-            cur = self.selected_db[4]
             cur.execute("PRAGMA foreign_keys=off")
             cur.execute(f"ALTER TABLE {table} RENAME TO _table11__old")
             try:
                 cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
-                cur.execute(f"INSERT INTO {table} ({columns0}) SELECT {columns1} FROM _table11__old")
+                cur.execute(f"INSERT INTO {table} ({columns1}) SELECT {columns0} FROM _table11__old")
             except sqlite3.OperationalError as e:
                 self.error(str(e))
                 cur.execute(f"ALTER TABLE _table11__old RENAME TO {table}")
@@ -343,6 +356,8 @@ class MyWidget(QMainWindow):
                 cur.execute("DROP TABLE IF EXISTS _table11__old")
 
     def _tab1_del(self):
+        if self.selected_table is None:
+            return
         index = self.table1.selectedIndexes()
         if index:
             row = index[0].row()
@@ -351,6 +366,8 @@ class MyWidget(QMainWindow):
             self.model1.removeRow(row)
 
     def _tab2_save(self):
+        if self.selected_table is None:
+            return
         model2 = self.model2
         table = self.selected_table
         cur = self.selected_db[4]
@@ -366,16 +383,19 @@ class MyWidget(QMainWindow):
         self.selected_db[3].commit()
 
     def _tab2_not_save(self):
+        if self.selected_table is None:
+            return
         self.selected_db[3].rollback()
         self.update_table()
 
     def _tab2_add(self):
+        if self.selected_table is None:
+            return
         self.model2.appendRow(QStandardItem(""))
 
-    def _tab2_edit(self):
-        pass  # TODO tab2 edit
-
     def _tab2_del(self):
+        if self.selected_table is None:
+            return
         index = self.table2.selectedIndexes()
         if index:
             row = index[0].row()
@@ -424,6 +444,11 @@ class MyWidget(QMainWindow):
             self.add_db(fileName)
 
     def add_db(self, path, save=True):
+        if not os.path.exists(path):
+            if not save:
+                self.delete_recent(path)
+            self.error(f"{path}\nНе найдет файл")
+            return
         try:
             con = sqlite3.connect(path)
         except sqlite3.OperationalError as e:
