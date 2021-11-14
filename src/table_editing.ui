@@ -101,7 +101,7 @@
     <string/>
    </property>
   </widget>
-  <widget class="QCheckBox" name="qnique">
+  <widget class="QCheckBox" name="unique">
    <property name="geometry">
     <rect>
      <x>140</x>
@@ -140,7 +140,7 @@
     <string>Не Null</string>
    </property>
   </widget>
-  <widget class="QCheckBox" name="non_null">
+  <widget class="QCheckBox" name="not_null">
    <property name="geometry">
     <rect>
      <x>140</x>

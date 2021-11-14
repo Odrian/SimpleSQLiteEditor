@@ -72,7 +72,6 @@ class Column:
             req.append("REFERENCES")
             req.append(self.references[0])
             req.append(self.references[1])
-        print(req)
         return " ".join(req)
 
 
@@ -111,7 +110,7 @@ class ColumnDialog(QDialog):
     def get_values(self, column):
         self.name.setText(column.name)
         if column.type is not None:
-            self.type.setCurrentIndex(TYPES.index(column.type))
+            self.type.setCurrentIndex(TYPES.index(column.type) + 1)
         self.primary_key.setChecked(column.primary_key)
         self.unique.setChecked(column.unique)
         self.not_null.setChecked(column.not_null)
@@ -164,21 +163,23 @@ class MyWidget(QMainWindow):
         self.open_recent()
 
     def setup(self):
-        # self.table2.doubleClicked.connect(lambda x: print(x))
-        self.menu_create_db.clicked.connect(self.new_db)
-        self.menu_open_db.clicked.connect(self.open_db)
+        # self.table2.doubleClicked.connect(self.)
+        self.menu_create.clicked.connect(self.new_db)
+        self.menu_open.clicked.connect(self.open_db)
+        self.menu_delete.clicked.connect(self.delete_db)
+        self.menu_update.clicked.connect(self.update_dbs)
 
-        self.tab1_save.clicked.connect(self._tab1_save)
-        self.tab1_not_save.clicked.connect(self._tab_not_save)
         self.tab1_add.clicked.connect(self._tab1_add)
         self.tab1_edit.clicked.connect(self._tab1_edit)
         self.tab1_del.clicked.connect(self._tab1_del)
 
         self.tab2_save.clicked.connect(self._tab2_save)
-        self.tab2_not_save.clicked.connect(self._tab_not_save)
+        self.tab2_not_save.clicked.connect(self._tab2_not_save)
         self.tab2_add.clicked.connect(self._tab2_add)
-        self.tab2_edit.clicked.connect(self._tab2_edit)
         self.tab2_del.clicked.connect(self._tab2_del)
+
+        self.tab1_update.clicked.connect(self._tab_update)
+        self.tab2_update.clicked.connect(self._tab_update)
 
         self.treeDBWidget.itemClicked.connect(self.tree_item_select)
         self.treeDBWidget.itemDoubleClicked.connect(self.tree_item_rename)
@@ -195,8 +196,15 @@ class MyWidget(QMainWindow):
 
     def open_recent(self):
         with open("recent.txt") as f:
-            for path in f:
-                self.add_db(path)
+            for path in f.read().split("\n"):
+                self.add_db(path, False)
+
+    def delete_recent(self, path):
+        with open("recent.txt") as f:
+            paths = f.read().split("\n")
+        del paths[paths.index(path)]
+        with open("recent.txt", "w") as f:
+            f.write("\n".join(paths))
 
     def select_db_table(self, db=None, table=None):
         if self.selected_db is not None:
@@ -241,9 +249,7 @@ class MyWidget(QMainWindow):
                             os.rename(path, new_path)
                             self.add_db(new_path)
                         except OSError as e:
-                            print(e)
-                            self.error("Не получилось переменовать\n" +
-                                       path + "\nв\n" + new_path)
+                            self.error(f"{e}\nНе получилось переименовать\n{path}\nв\n{new_path}")
                             return
         else:
             db_info = self.get_db_info_by_widget(db)
@@ -251,8 +257,7 @@ class MyWidget(QMainWindow):
             table1, flag = self.input_dialog(
                 "Переименовать таблицу",
                 "Все не сохранённые данные будут утеряны.\nНовое имя:")
-            table1 = self.check_text_correct(table1)
-            if flag and table1 != "" and table1 != table0:
+            if flag and table1 != table0 and self.check_text_correct(table1) != "":
                 if table1 not in db_info[5]:
                     self.sql_rename_table(db_info, table0, table1)
                 else:
@@ -267,36 +272,7 @@ class MyWidget(QMainWindow):
         else:
             db_info = self.get_db_info_by_widget(db)
             table = it.text(0)
-            self.select_table(db_info, table)
-
-    def tree_top_item_delete(self, db_info):
-        self.select_db_table()
-
-        widget = db_info[2]
-        index = self.treeDBWidget.indexOfTopLevelItem(widget)
-        self.treeDBWidget.takeTopLevelItem(index)
-
-        del self.dbs[self.dbs.index(db_info)]
-
-    def select_table(self, db_info, table):
-        self.clear_tables()
-        self.select_db_table(db_info, table)
-
-        cur = db_info[4]
-        columns = self.sql_get_all_columns(cur, table)
-
-        for column in columns:
-            self.model1.appendRow(map(self.make_uneditable_item, column.get_list()))
-        self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-
-        self.model2.setHorizontalHeaderLabels(map(lambda x: x.name, columns))
-        for row in self.sql_get_all_data(cur, table):
-            self.model2.appendRow(map(lambda x: QStandardItem(str(x)), row))
-
-    def make_uneditable_item(self, text):
-        item = QStandardItem(text)
-        item.setEditable(False)
-        return item
+            self.update_table(db_info, table)
 
     def get_db_info_by_widget(self, widget):
         for db_info1 in self.dbs:
@@ -311,19 +287,33 @@ class MyWidget(QMainWindow):
                 return ""
         return text
 
-    def _tab_not_save(self):
-        self.select_table(self.selected_db, self.selected_table)
-
-    def _tab1_save(self):
-        self.selected_db[3].commit()
+    def _tab_update(self):
+        self.update_table()
 
     def _tab1_add(self):
+        table = None  # Чтобы убрать Warning
+        if self.selected_table is None:
+            table, flag = self.input_dialog("Ввод", "Введите имя новой таблицы:")
+            if not flag or self.check_text_correct(table) == "":
+                self.error("Ошибка ввода")
+                return
+            if table in self.selected_db[5]:
+                self.error(f"Таблица {table} уже существует")
+                return
         name, flag = self.input_dialog("Ввод", "Введите имя нового слобца:")
         if not flag or self.check_text_correct(name) == "":
-            self.error("Ошибка ввода имени")
-        table = self.selected_table
-        self.selected_db[4].execute(f"ALTER TABLE {table} ADD {name}")
+            self.error("Ошибка ввода")
+            return
+        cur = self.selected_db[4]
+        if self.selected_table is None:
+            cur.execute(f"CREATE TABLE {table} ({name})")
+            self.selected_table = table
+            self.selected_db[5].append(table)
+            self.selected_db[2].addChild(QTreeWidgetItem((table, )))
+        else:
+            cur.execute(f"ALTER TABLE {self.selected_table} ADD {name}")
         self.model1.appendRow([self.make_uneditable_item(name)] + [self.make_uneditable_item("") for _ in range(6)])
+        self.update_table()
 
     def _tab1_edit(self):
         index = self.table1.selectedIndexes()
@@ -333,69 +323,91 @@ class MyWidget(QMainWindow):
             column1 = ColumnDialog(self).get_values(column0)
             if column1 is None:
                 return
-            cur = self.selected_db[4]
-            if self.selected_table is None:
-                table0, flag = self.input_dialog("Ввод", "Введите имя новой таблицы:")
-                if not flag or table0 == "":
-                    self.error("Ошибка ввода имени")
-                    return
-                self.selected_table = table0
             table = self.selected_table
-            text1 = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
-            request = cur.execute(text1).fetchall()[0][0]
-            request = request.removeprefix(f"CREATE TABLE ").removeprefix("\"").removeprefix(table)\
-                .removeprefix("\"").removeprefix(" (").removesuffix(")").split(", ")
+            request = self.sql_get_table_request()
+            columns0 = ", ".join(map(lambda x: x.split()[0], request))
             request[row] = column1.get_request()
-            columns = ", ".join(map(lambda x: x.split()[0], request))
-            print(request)
-            text = f"""
-            PRAGMA foreign_keys=off;
-            BEGIN TRANSACTION;
-            ALTER TABLE {table} RENAME TO _table11__old;
-            CREATE TABLE {table} (
-            {", ".join(request)}
-            );
-            INSERT INTO {table} ({columns}) SELECT {columns} FROM _table11__old;
-            PRAGMA foreign_keys=on;
-            DROP TABLE _table11__old
-            """
-            for req in text.split(";"):
-                req = req.replace('\n', '')
-                req = ' '.join(req.split())
-                print(req)
-                cur.execute(req)
-            self.select_table(self.selected_db, self.selected_table)
+            columns1 = ", ".join(map(lambda x: x.split()[0], request))
+            cur = self.selected_db[4]
+            cur.execute("PRAGMA foreign_keys=off")
+            cur.execute(f"ALTER TABLE {table} RENAME TO _table11__old")
+            try:
+                cur.execute(f"CREATE TABLE {table} ({', '.join(request)})")
+                cur.execute(f"INSERT INTO {table} ({columns0}) SELECT {columns1} FROM _table11__old")
+            except sqlite3.OperationalError as e:
+                self.error(str(e))
+                cur.execute(f"ALTER TABLE _table11__old RENAME TO {table}")
+            finally:
+                cur.execute("PRAGMA foreign_keys=on")
+                self.update_table()
+                cur.execute("DROP TABLE IF EXISTS _table11__old")
 
     def _tab1_del(self):
         index = self.table1.selectedIndexes()
         if index:
-            self.sql_delete_table(self.model1.data(self.model1.index(1, 0)))
-            self.model1.removeRow(index[0].row())
+            row = index[0].row()
+            column = self.model1.data(self.model1.index(row, 0))
+            self.selected_db[4].execute(f"ALTER TABLE {self.selected_table} DROP COLUMN {column}")
+            self.model1.removeRow(row)
 
     def _tab2_save(self):
         model2 = self.model2
         table = self.selected_table
         cur = self.selected_db[4]
-        columns = self.sql_get_all_columns(cur, table)
+        columns = self.sql_get_all_columns()
 
-        for x in range(model2.columnCount()):
-            column = columns[x]
-            for y in range(model2.rowCount()):
+        cur.execute(f"DELETE FROM {table}")
+        for y in range(model2.rowCount()):
+            row = []
+            for x in range(len(columns)):
                 val = model2.data(model2.index(y, x))
-                cur.execute(f"UPDATE {table} SET {column} = {val} WHERE id={y}")
+                row.append(val)
+            cur.execute(f"INSERT INTO {table} VALUES ({', '.join(row)})")
         self.selected_db[3].commit()
+
+    def _tab2_not_save(self):
+        self.selected_db[3].rollback()
+        self.update_table()
 
     def _tab2_add(self):
         self.model2.appendRow(QStandardItem(""))
 
     def _tab2_edit(self):
-        pass
+        pass  # TODO tab2 edit
 
     def _tab2_del(self):
         index = self.table2.selectedIndexes()
         if index:
             row = index[0].row()
             self.model2.removeRow(row)
+
+    def update_table(self, db_info=None, table=None):
+        if db_info is None:
+            db_info = self.selected_db
+        if table is None:
+            table = self.selected_table
+        self.clear_tables()
+        self.select_db_table(db_info, table)
+
+        columns = self.sql_get_all_columns()
+
+        for column in columns:
+            self.model1.appendRow(map(self.make_uneditable_item, column.get_list()))
+        self.table1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        self.model2.setHorizontalHeaderLabels(map(lambda x: x.name, columns))
+        for row in self.sql_get_all_data():
+            self.model2.appendRow(map(lambda x: QStandardItem(self.convert_to_str(x)), row))
+
+    def make_uneditable_item(self, text):
+        item = QStandardItem(text)
+        item.setEditable(False)
+        return item
+
+    def convert_to_str(self, text):
+        if text is None:
+            return QStandardItem()
+        return QStandardItem(str(text))
 
     def new_db(self):
         file_name = QFileDialog.getSaveFileName(
@@ -411,22 +423,57 @@ class MyWidget(QMainWindow):
         for fileName in file_names:
             self.add_db(fileName)
 
-    def add_db(self, path, recent=False):
+    def add_db(self, path, save=True):
+        try:
+            con = sqlite3.connect(path)
+        except sqlite3.OperationalError as e:
+            self.error(path + "\n" + str(e))
+            return
         name = path.split('/')[-1]
-        widget = QTreeWidgetItem([name])
+        widget = QTreeWidgetItem((name, ))
         widget.setToolTip(0, path)
         self.treeDBWidget.addTopLevelItem(widget)
-        con = sqlite3.connect(path)
         cur = con.cursor()
         tables = self.sql_get_all_tables(cur)
         for table in tables:
-            widget.addChild(QTreeWidgetItem([table]))
+            widget.addChild(QTreeWidgetItem((table, )))
 
-        if recent:
+        if save:
             with open("recent.txt", "a") as f:
+                f.write("\n")
                 f.write(path)
         k = [name, path, widget, con, cur, tables]
         self.dbs.append(k)
+
+    def delete_db(self):
+        if self.selected_db is None:
+            return
+
+        if self.selected_table is None:
+            self.delete_recent(self.selected_db[1])
+            self.tree_top_item_delete()
+        else:
+            self.selected_db[4].execute(f"DROP TABLE {self.selected_table}")
+        self.clear_tables()
+        self.update_dbs()
+
+    def update_dbs(self):
+        self.select_db_table()
+        self.clear_tables()
+
+        self.treeDBWidget.clear()
+        self.open_recent()
+
+    def tree_top_item_delete(self, db_info=None):
+        if db_info is None:
+            db_info = self.selected_db
+        self.select_db_table()
+
+        widget = db_info[2]
+        index = self.treeDBWidget.indexOfTopLevelItem(widget)
+        self.treeDBWidget.takeTopLevelItem(index)
+
+        del self.dbs[self.dbs.index(db_info)]
 
     def error(self, text="Some error", exit_out=False):
         msg = QMessageBox()
@@ -451,9 +498,6 @@ class MyWidget(QMainWindow):
         text = dialog.textValue()
         return text, flag
 
-    def sql_delete_table(self, column):
-        self.selected_db[4].execute(f"ALTER TABLE {self.selected_table} DROP COLUMN {column}")
-
     def sql_rename_table(self, db_info, table0, table1):
         con = db_info[3]
         cur = db_info[4]
@@ -472,16 +516,10 @@ class MyWidget(QMainWindow):
         tables = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         return list(map(lambda x: x[0], tables))
 
-    def sql_get_all_columns(self, cur, table):
-        tex = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
-        request = cur.execute(tex).fetchall()
-        if not request:
-            self.error(f"error: не удалось найти таблицу - {table}")
-            return []
-        request = request[0][0].removeprefix(f"CREATE TABLE ").removeprefix("\"").removeprefix(table)\
-            .removeprefix("\"").removeprefix(" (").removesuffix(")")
+    def sql_get_all_columns(self, cur=None, table=None):
+        request = self.sql_get_table_request(cur, table)
         columns = []
-        for req in request.split(', '):
+        for req in request:
             req = req.split()
             name = req[0]
             column = Column(name)
@@ -515,7 +553,25 @@ class MyWidget(QMainWindow):
             columns.append(column)
         return columns
 
-    def sql_get_all_data(self, cur, table):
+    def sql_get_table_request(self, cur=None, table=None):
+        if cur is None:
+            cur = self.selected_db[4]
+        if table is None:
+            table = self.selected_table
+        tex = f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table}'"
+        request = cur.execute(tex).fetchall()
+        if not request:
+            self.error(f"error: не удалось найти таблицу - {table}")
+            return []
+        request = request[0][0].removeprefix(f"CREATE TABLE ").removeprefix("\"").removeprefix(table)\
+            .removeprefix("\"").removeprefix(" (").removesuffix(")")
+        return request.split(", ")
+
+    def sql_get_all_data(self, cur=None, table=None):
+        if cur is None:
+            cur = self.selected_db[4]
+        if table is None:
+            table = self.selected_table
         return cur.execute("SELECT * FROM " + table).fetchall()
 
 
@@ -524,9 +580,9 @@ def except_hook(cls, exception, traceback):
 
 
 TYPES = [
-    "BIGINT", "BLOB", "BOOLEAN", "CHAR", "DATE", "DATETIME",
-    "DECIMAL", "DOUBLE", "INTEGER", "INT", "NONE", "NUMERIC",
-    "REAL", "STRING", "TEXT", "TIME", "VARCHAR",
+    "NUMERIC", "REAL", "INTEGER", "INT", "BIGINT", "DECIMAL", "DOUBLE",
+    "STRING", "TEXT", "CHAR", "VARCHAR", "BLOB", "NONE",
+    "BOOLEAN", "DATE", "DATETIME", "TIME",
 ]
 
 if __name__ == '__main__':
