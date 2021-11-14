@@ -383,8 +383,15 @@ class MyWidget(QMainWindow):
             row = []
             for x in range(model2.columnCount()):
                 val = model2.data(model2.index(y, x))
-                row.append(val)
-            cur.execute(f"INSERT INTO {table} VALUES ({', '.join(row)})")
+                row.append(f"'{val}'")
+            columns = self.sql_get_all_columns()
+            columns = map(lambda col: col.name, columns)
+            try:
+                cur.execute(f"INSERT INTO {table} ({','.join(columns)}) VALUES ({', '.join(row)})")
+            except sqlite3.IntegrityError as e:
+                self.error(str(e))
+                self._tab2_not_save()
+                return
         self.selected_db[3].commit()
 
     def _tab2_not_save(self):
